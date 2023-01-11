@@ -9,11 +9,16 @@ output: html_document
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-Load in Tidyverse for data analysis and zipcodeR to geocode the zipcodes captured by BuiltWith
+Load in Tidyverse for data analysis, zipcodeR to join to the Builtwith data, sf and spData for spatial analysis
+
 ```{r}
 library(tidyverse)
 library(zipcodeR)
+library(sf)
+library(spData)
 ```
+
+Read in Builtwith data on Realpage and select relevant fields
 
 ```{r}
 real_page <- read.csv("rp-data.CSV")
@@ -22,23 +27,16 @@ real_page <- real_page %>%  select(Domain, Telephones, Emails, Twitter, Facebook
 
 glimpse(real_page)
 ```
-```{r}
-zip_data <- zip_code_db
-glimpse(zip_data)
-```
+
+Join Realpage data with zipcode information from zipcodeR
 
 ```{r}
-joined_data <- real_page %>% left_join(zip_data, by=c('Zip' = 'zipcode'))
+joined_data <- real_page %>% left_join(zip_code_db, by=c('Zip' = 'zipcode'))
 glimpse(joined_data)
 ```
 
-```{r}
-joined_data %>% 
-  ggplot(aes(x = lng, y = lat)) +
-  geom_point() +
-  borders("state") +
-  theme_void()
-```
+First plot of companies potentially using Realpage products grouped by zipcode
+
 ```{r}
 joined_data %>% 
   group_by(Zip, major_city, state, lat, lng) %>% 
@@ -50,7 +48,25 @@ joined_data %>%
   theme_void()
 ```
 
+Convert long and lat to geometric point
+
 ```{r}
-write.csv(joined_data, "joined_data.csv")
+joined_data <- joined_data %>% 
+  drop_na(lat, lng) %>% 
+  mutate(lat = as.numeric(lat),
+         lng = as.numeric(lng)) %>% 
+  st_as_sf(coords = c("lng", "lat"))
+
+glimpse(joined_data)
 ```
+
+Import shapefile of all zipcodes in United States
+
+```{r}
+zip_shape <- read_sf("~/Desktop/zipshape")
+
+glimpse(zip_shape)
+```
+
+Only select zipcodes that interesect with points in joined_data
 
